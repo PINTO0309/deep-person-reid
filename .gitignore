@@ -139,3 +139,8 @@ log/
 saved-models/
 model-zoo/
 debug*
+
+*.pth.tar
+*.onnx
+*.pyth
+*.pth
