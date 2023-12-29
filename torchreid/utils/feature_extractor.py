@@ -50,6 +50,18 @@ class SimilarityCalculator(nn.Module):
         self.target_model = tf.model
         self.distance = distance # euclidean, cosine
 
+    def _pairwise_distance_primitive(self, x, y):
+        # xとyをブロードキャストできる形に調整
+        x = x.unsqueeze(1)  # xの形状を[2, 1, 1280]に変更
+        y = y.unsqueeze(0)  # yの形状を[1, 3, 1280]に変更
+
+        # これにより、xとyの形状が[2, 3, 1280]にブロードキャストされ、
+        # それぞれのペアの差を計算できる
+        diff = x - y
+        squared_diff = diff.pow(2)
+        sum_squared_diff = torch.sum(squared_diff, dim=2)  # 最後の次元に沿って和を取る
+        distance = torch.sqrt(sum_squared_diff)
+        return distance
 
     def forward(self, base_input, target_input):
         with torch.no_grad():
@@ -57,7 +69,7 @@ class SimilarityCalculator(nn.Module):
             target_features = self.target_model(target_input)
 
             if self.distance == 'euclidean':
-                euclidean_distance = F.pairwise_distance(base_features, target_features, p=2, eps=1e-6, keepdim=True)
+                euclidean_distance = self._pairwise_distance_primitive(base_features, target_features)
                 similarity = torch.clip(1.0 / euclidean_distance, max=1/1e-6)
 
             elif self.distance == 'cosine':

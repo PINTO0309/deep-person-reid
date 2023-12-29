@@ -80,8 +80,6 @@ class AbstractModel(ABC):
         "tensor(float)": np.float32,
         "tensor(uint8)": np.uint8,
         "tensor(int8)": np.int8,
-        "tensor(int64)": np.int64,
-        "tensor(int32)": np.int32,
     }
 
     # tflite
@@ -220,7 +218,7 @@ class OSNet(AbstractModel):
         self,
         *,
         runtime: Optional[str] = 'onnx',
-        model_path: Optional[str] = 'osnet_ain_d_m_c_NMx3x256x128.onnx',
+        model_path: Optional[str] = 'osnet_ain_d_m_c_11x3x256x128.onnx',
         providers: Optional[List] = None,
     ):
         """OSNet
@@ -247,8 +245,8 @@ class OSNet(AbstractModel):
     def __call__(
         self,
         *,
-        base_images: List[np.ndarray],
-        target_images: List[np.ndarray],
+        base_image: np.ndarray,
+        target_image: np.ndarray,
     ) -> np.ndarray:
         """OSNet
 
@@ -265,35 +263,35 @@ class OSNet(AbstractModel):
         similarity: np.ndarray
             similarity
         """
-        temp_base_images = copy.deepcopy(base_images)
-        temp_target_images = copy.deepcopy(target_images)
+        temp_base_image = copy.deepcopy(base_image)
+        temp_target_image = copy.deepcopy(target_image)
 
         # PreProcess
-        base_images, target_images = \
+        inferece_image = \
             self._preprocess(
-                base_images=temp_base_images,
-                target_images=temp_target_images,
+                base_image=temp_base_image,
+                target_image=temp_target_image,
             )
 
         # Inference
-        outputs = super().__call__(input_datas=[base_images, target_images])
+        outputs = super().__call__(input_datas=[inferece_image])
         similarity = np.squeeze(outputs[0])
         return similarity
 
     def _preprocess(
         self,
         *,
-        base_images: List[np.ndarray],
-        target_images: List[np.ndarray],
-    ) -> Tuple[np.ndarray, int, int]:
+        base_image: np.ndarray,
+        target_image: np.ndarray,
+    ) -> np.ndarray:
         """_preprocess
 
         Parameters
         ----------
-        base_images: List[np.ndarray]
+        base_image: np.ndarray
             Entire image
 
-        target_image: List[np.ndarray]
+        target_image: np.ndarray
             Entire image
 
         swap: tuple
@@ -304,57 +302,40 @@ class OSNet(AbstractModel):
 
         Returns
         -------
-        stacked_images_N: np.ndarray
-            Resized and normalized image. [N, 3, H, W]
-
-        stacked_images_M: np.ndarray
-            Resized and normalized image. [M, 3, H, W]
+        resized_image: np.ndarray
+            Resized and normalized image.
         """
         # Resize + Transpose
-        resized_base_images_np: np.ndarray = None
-        resized_base_images_list: List[np.ndarray] = []
-        for base_image in base_images:
-            resized_base_image: np.ndarray = \
-                cv2.resize(
-                    src=base_image,
-                    dsize=(
-                        int(self._input_shapes[0][self._w_index]),
-                        int(self._input_shapes[0][self._h_index]),
-                    )
+        resized_base_image: np.ndarray = \
+            cv2.resize(
+                src=base_image,
+                dsize=(
+                    int(self._input_shapes[0][self._w_index]),
+                    int(self._input_shapes[0][self._h_index]),
                 )
-            resized_base_image = resized_base_image[..., ::-1]
-            resized_base_image = resized_base_image.transpose(self._swap)
-            resized_base_images_list.append(resized_base_image)
-        resized_base_images_np = np.asarray(resized_base_images_list)
-        base_images_num = len(resized_base_images_np)
-
-        resized_target_images_np: np.ndarray = None
-        resized_target_images_list: List[np.ndarray] = []
-        for target_image in target_images:
-            resized_target_image: np.ndarray = \
-                cv2.resize(
-                    src=target_image,
-                    dsize=(
-                        int(self._input_shapes[0][self._w_index]),
-                        int(self._input_shapes[0][self._h_index]),
-                    )
+            )
+        resized_base_image = resized_base_image[..., ::-1]
+        resized_base_image = resized_base_image.transpose(self._swap)
+        resized_target_image: np.ndarray = \
+            cv2.resize(
+                src=target_image,
+                dsize=(
+                    int(self._input_shapes[0][self._w_index]),
+                    int(self._input_shapes[0][self._h_index]),
                 )
-            resized_target_image = resized_target_image[..., ::-1]
-            resized_target_image = resized_target_image.transpose(self._swap)
-            resized_target_images_list.append(resized_target_image)
-        resized_target_images_np = np.asarray(resized_target_images_list)
-        target_images_num = len(resized_target_images_np)
-
-        stacked_images = \
+            )
+        resized_target_image = resized_target_image[..., ::-1]
+        resized_target_image = resized_target_image.transpose(self._swap)
+        stacked_image = \
             np.vstack(
                 [
-                    resized_base_images_np,
-                    resized_target_images_np,
+                    resized_base_image[np.newaxis, ...],
+                    resized_target_image[np.newaxis, ...],
                 ]
             )
-        stacked_images = (stacked_images / 255.0 - self._mean) / self._std
-        stacked_images = stacked_images.astype(self._input_dtypes[0])
-        return stacked_images[0:base_images_num, ...], stacked_images[base_images_num:base_images_num+target_images_num, ...]
+        stacked_image = (stacked_image / 255.0 - self._mean) / self._std
+        stacked_image = stacked_image.astype(self._input_dtypes[0])
+        return stacked_image
 
 
 def is_parsable_to_int(s):
@@ -386,22 +367,22 @@ def main():
         '-m',
         '--model',
         type=str,
-        default='osnet_ain_d_m_c_NMx3x256x128.onnx',
+        default='osnet_ain_d_m_c_11x3x256x128.onnx',
         help='ONNX/TFLite file path for OSNet.',
     )
     parser.add_argument(
-        '-bis',
-        '--base_images',
+        '-i1',
+        '--image1',
         type=str,
-        nargs='+',
-        help='Base image files.',
+        default="00030.jpg",
+        help='Base image file.',
     )
     parser.add_argument(
-        '-tis',
-        '--target_images',
+        '-i2',
+        '--image2',
         type=str,
-        nargs='+',
-        help='Target image files.',
+        default="00031.jpg",
+        help='Target image file.',
     )
     parser.add_argument(
         '-ep',
@@ -432,8 +413,8 @@ def main():
             print(Color.RED('ERROR: https://github.com/PINTO0309/TensorflowLite-bin'))
             print(Color.RED('ERROR: https://github.com/tensorflow/tensorflow'))
             sys.exit(0)
-    base_image_files: str = args.base_images
-    target_image_files: str = args.target_images
+    base_image_file: str = args.image1
+    target_image_file: str = args.image2
     execution_provider: str = args.execution_provider
     providers: List[Tuple[str, Dict] | str] = None
     if execution_provider == 'cpu':
@@ -465,48 +446,33 @@ def main():
         providers=providers,
     )
 
-    base_images: List[np.ndarray] = []
-    target_images: List[np.ndarray] = []
+    base_image: np.ndarray = cv2.imread(base_image_file)
+    target_image: np.ndarray = cv2.imread(target_image_file)
 
-    for base_image_file in base_image_files:
-        base_image: np.ndarray = cv2.imread(base_image_file)
-        base_images.append(base_image)
-
-    for target_image_file in target_image_files:
-        target_image: np.ndarray = cv2.imread(target_image_file)
-        target_images.append(target_image)
-
-    similarities = \
-        model(
-            base_images=base_images,
-            target_images=target_images,
-        )
     start_time = time.perf_counter()
-    similarities = \
+    similarity = \
         model(
-            base_images=base_images,
-            target_images=target_images,
+            base_image=base_image,
+            target_image=target_image,
         )
     elapsed_time = time.perf_counter() - start_time
 
-    for idx, n in enumerate(similarities):
-        similarity_str = ""
-        for m in n:
-            similarity_str = f"{similarity_str}{m:.3f} "
-        print(f'Base.{idx+1}: {Color.GREEN("The similarities are")} {similarity_str}')
-    print(f'{Color.GREEN("Elapsed time:")} {elapsed_time*1000:.2f}ms' )
+    print(f'{Color.GREEN("The similarity is")} {similarity:.3f} {Color.GREEN("Elapsed time:")} {elapsed_time*1000:.2f}ms' )
 
 if __name__ == "__main__":
     main()
 
 """
-# CPU:
-Base.1: The similarities are 0.511 0.764 0.725
-Base.2: The similarities are 1.000 0.630 0.566
-Elapsed time: 319.38ms
+# CPU: opset=11
+The similarity is 0.725 Elapsed time: 158.13ms
+# CPU: opset=18
+The similarity is 0.725 Elapsed time: 156.46ms
 
-# CUDA:
-Base.1: The similarities are 0.511 0.764 0.725
-Base.2: The similarities are 1.000 0.631 0.566
-Elapsed time: 120.10ms
+# CUDA: opset=11
+The similarity is 0.725 Elapsed time: 65.16ms
+# CUDA: opset=18
+The similarity is 0.725 Elapsed time: 65.15ms
+
+# TensorRT: opset=11
+The similarity is 0.999 Elapsed time: 8.06ms
 """
