@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torchvision.transforms as T
 from PIL import Image
 
@@ -9,6 +11,63 @@ from torchreid.utils import (
 )
 from torchreid.models import build_model
 
+class SimilarityCalculator(nn.Module):
+    def __init__(
+        self,
+        model_name='',
+        model_path='',
+        image_size=(256, 128),
+        pixel_mean=[0.485, 0.456, 0.406],
+        pixel_std=[0.229, 0.224, 0.225],
+        pixel_norm=True,
+        device='cuda',
+        verbose=True,
+        distance='euclidean'
+    ):
+        super(SimilarityCalculator, self).__init__()
+        bf = FeatureExtractor(
+            model_name=model_name,
+            model_path=model_path,
+            image_size=(image_size[0], image_size[1]),
+            pixel_mean=pixel_mean,
+            pixel_std=pixel_std,
+            pixel_norm=pixel_norm,
+            device=device,
+            verbose=verbose,
+        )
+        self.base_model = bf.model
+
+        tf = FeatureExtractor(
+            model_name=model_name,
+            model_path=model_path,
+            image_size=(image_size[0], image_size[1]),
+            pixel_mean=pixel_mean,
+            pixel_std=pixel_std,
+            pixel_norm=pixel_norm,
+            device=device,
+            verbose=verbose,
+        )
+        self.target_model = tf.model
+        self.distance = distance # euclidean, cosine
+
+
+    def forward(self, base_input, target_input):
+        with torch.no_grad():
+            base_features = self.base_model(base_input)
+            target_features = self.target_model(target_input)
+
+            if self.distance == 'euclidean':
+                euclidean_distance = F.pairwise_distance(base_features, target_features, p=2, eps=1e-6, keepdim=True)
+                similarity = torch.clip(1.0 / euclidean_distance, max=1/1e-6)
+
+            elif self.distance == 'cosine':
+                base_features_norm = F.normalize(base_features, dim=1)
+                target_features_norm = F.normalize(target_features, dim=1)
+                similarity = base_features_norm.matmul(target_features_norm.transpose(1, 0))
+            else:
+                raise NotImplementedError
+
+        return similarity
 
 class FeatureExtractor(object):
     """A simple API for feature extraction.

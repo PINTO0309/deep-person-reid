@@ -146,3 +146,5 @@ debug*
 *.pth
 *.tflite
 saved_model/
+*.engine
+*.profile
