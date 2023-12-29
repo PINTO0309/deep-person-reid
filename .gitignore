@@ -144,3 +144,5 @@ debug*
 *.onnx
 *.pyth
 *.pth
+*.tflite
+saved_model/
