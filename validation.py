@@ -3,7 +3,7 @@
 from __future__ import annotations
 import copy
 import cv2
-import time
+from tqdm import tqdm
 import numpy as np
 from enum import Enum
 from typing import Tuple, Optional, List, Dict
@@ -73,6 +73,7 @@ TEST_IMAGES = [
     ["1.png", "3.png"], # ↑
     ["1.png", "4.png"], # ↑
     ["00030.jpg", "1.png"], # ↓
+    ["00031.jpg", "2.png"], # ↓
 ]
 
 class Color(Enum):
@@ -435,12 +436,10 @@ def is_package_installed(package_name: str):
 
 def main():
     md_str = ""
-    md_str = md_str + "|Model|00030 vs 00031|1 vs 2|1 vs 3|1 vs 4|00030 vs 1|\n"
-    md_str = md_str + "|:-|-:|-:|-:|-:|-:|\n"
+    md_str = md_str + "|Model|00030 vs 00031|1 vs 2|1 vs 3|1 vs 4|00030 vs 1|00031 vs 2|\n"
+    md_str = md_str + "|:-|-:|-:|-:|-:|-:|-:|\n"
 
-    for model_file in MODELS:
-
-        # Model initialization
+    for model_file in tqdm(MODELS):
         model = OSNet(
             runtime='onnx',
             model_path=model_file,
@@ -461,8 +460,8 @@ def main():
                     target_images=[target_image],
                 )
             sims.append(f'{float(similarities):.3f}')
-        md_str = md_str + f"|{model_file}|{sims[0]}|{sims[1]}|{sims[2]}|{sims[3]}|{sims[4]}|\n"
-        print(md_str)
+        md_str = md_str + f"|{model_file}|{sims[0]}|{sims[1]}|{sims[2]}|{sims[3]}|{sims[4]}|{sims[5]}|\n"
+    print(md_str)
 
 if __name__ == "__main__":
     main()
