@@ -277,7 +277,7 @@ class OSNet(AbstractModel):
 
         # Inference
         outputs = super().__call__(input_datas=[base_images, target_images])
-        similarity = np.squeeze(outputs[0])
+        similarity = outputs[0]
         return similarity
 
     def _preprocess(
