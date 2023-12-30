@@ -148,3 +148,4 @@ debug*
 saved_model/
 *.engine
 *.profile
+*.tar.gz

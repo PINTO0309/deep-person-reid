@@ -19,7 +19,7 @@ MODELS = [
 
     ['mlfn', [256,128], 'mlfn-9cb5a267.pth.tar', 'cosine'],
     ['mobilenetv2_x1_0', [256,128], 'mobilenetv2_1.0-0f96a698.pth.tar', 'cosine'],
-    ['mobilenetv2_x1_4', [256,128], 'mobilenetv2_1.4-bc1cc36b.pth.tar', 'cosine'],
+    # ['mobilenetv2_x1_4', [256,128], 'mobilenetv2_1.4-bc1cc36b.pth.tar', 'cosine'],
     ['mobilenetv2_x1_0', [256,128], 'mobilenetv2_1dot0_duke.pth.tar', 'cosine'],
     ['mobilenetv2_x1_0', [256,128], 'mobilenetv2_1dot0_market.pth.tar', 'cosine'],
     ['mobilenetv2_x1_0', [256,128], 'mobilenetv2_1dot0_msmt.pth.tar', 'cosine'],
@@ -125,8 +125,8 @@ for model_name, [H, W], weight_file, distance in MODELS:
         args=(x, y),
         f=onnx_file,
         opset_version=11,
-        input_names=['base', 'target'],
-        output_names=['output'],
+        input_names=['base_image', 'target_image'],
+        output_names=['similarity'],
     )
     model_onnx1 = onnx.load(onnx_file)
     model_onnx1 = onnx.shape_inference.infer_shapes(model_onnx1)
@@ -141,11 +141,11 @@ for model_name, [H, W], weight_file, distance in MODELS:
             args=(x, y),
             f=onnx_file,
             opset_version=11,
-            input_names=['base', 'target'],
-            output_names=['output'],
+            input_names=['base_image', 'target_images'],
+            output_names=['similarities'],
             dynamic_axes={
-                'target' : {0: 'N'},
-                'output' : {0: '1', 0: 'N'},
+                'target_images' : {0: 'N'},
+                'similarities' : {0: '1', 1: 'N'},
             }
         )
         model_onnx1 = onnx.load(onnx_file)
@@ -161,12 +161,12 @@ for model_name, [H, W], weight_file, distance in MODELS:
             args=(x, y),
             f=onnx_file,
             opset_version=11,
-            input_names=['base', 'target'],
-            output_names=['output'],
+            input_names=['base_images', 'target_images'],
+            output_names=['similarities'],
             dynamic_axes={
-                'base' : {0: 'N'},
-                'target' : {0: 'M'},
-                'output' : {0: 'N', 0: 'M'},
+                'base_images' : {0: 'N'},
+                'target_images' : {0: 'M'},
+                'similarities' : {0: 'N', 1: 'M'},
             }
         )
         model_onnx1 = onnx.load(onnx_file)

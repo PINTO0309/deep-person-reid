@@ -11,6 +11,64 @@ from torchreid.utils import (
 )
 from torchreid.models import build_model
 
+class SimilarityCalculatorFeatureOnly(nn.Module):
+    def __init__(
+        self,
+        model_name='',
+        model_path='',
+        image_size=(256, 128),
+        pixel_mean=[0.485, 0.456, 0.406],
+        pixel_std=[0.229, 0.224, 0.225],
+        pixel_norm=True,
+        device='cuda',
+        verbose=True,
+        distance='euclidean'
+    ):
+        super(SimilarityCalculatorFeatureOnly, self).__init__()
+        bf = FeatureExtractor(
+            model_name=model_name,
+            model_path=model_path,
+            image_size=(image_size[0], image_size[1]),
+            pixel_mean=pixel_mean,
+            pixel_std=pixel_std,
+            pixel_norm=pixel_norm,
+            device=device,
+            verbose=verbose,
+        )
+        self.base_model = bf.model
+        self.distance = distance # euclidean, cosine
+
+    def _pairwise_distance_primitive(self, x, y):
+        # xとyをブロードキャストできる形に調整
+        x = x.unsqueeze(1)  # xの形状を[2, 1, 1280]に変更
+        y = y.unsqueeze(0)  # yの形状を[1, 3, 1280]に変更
+
+        # これにより、xとyの形状が[2, 3, 1280]にブロードキャストされ、
+        # それぞれのペアの差を計算できる
+        diff = x - y
+        squared_diff = diff.pow(2)
+        sum_squared_diff = torch.sum(squared_diff, dim=2)  # 最後の次元に沿って和を取る
+        distance = torch.sqrt(sum_squared_diff)
+        return distance
+
+    def forward(self, base_input, target_features):
+        with torch.no_grad():
+            base_features = self.base_model(base_input)
+
+            if self.distance == 'euclidean':
+                euclidean_distance = self._pairwise_distance_primitive(base_features, target_features)
+                similarity = torch.clip(1.0 / euclidean_distance, max=1/1e-6)
+
+            elif self.distance == 'cosine':
+                base_features_norm = F.normalize(base_features, dim=1)
+                target_features_norm = F.normalize(target_features, dim=1)
+                similarity = base_features_norm.matmul(target_features_norm.transpose(1, 0))
+            else:
+                raise NotImplementedError
+
+        return base_features, similarity
+
+
 class SimilarityCalculator(nn.Module):
     def __init__(
         self,
