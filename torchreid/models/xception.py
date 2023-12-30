@@ -144,7 +144,7 @@ class Block(nn.Module):
 
 class Xception(nn.Module):
     """Xception.
-    
+
     Reference:
         Chollet. Xception: Deep Learning with Depthwise
         Separable Convolutions. CVPR 2017.
@@ -302,7 +302,9 @@ class Xception(nn.Module):
     def forward(self, x):
         f = self.featuremaps(x)
         v = self.global_avgpool(f)
-        v = v.view(v.size(0), -1)
+        # v = v.view(v.size(0), -1)
+        n, c, h, w = v.shape
+        v = v.view(n, c*h*w)
 
         if self.fc is not None:
             v = self.fc(v)
@@ -322,7 +324,7 @@ class Xception(nn.Module):
 
 def init_pretrained_weights(model, model_url):
     """Initialize models with pretrained weights.
-    
+
     Layers that don't match with pretrained layers in name or size are kept unchanged.
     """
     pretrain_dict = model_zoo.load_url(model_url)

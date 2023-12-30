@@ -8,7 +8,7 @@ __all__ = ['MuDeep']
 
 class ConvBlock(nn.Module):
     """Basic convolutional block.
-    
+
     convolution + batch normalization + relu.
 
     Args:
@@ -191,7 +191,10 @@ class MuDeep(nn.Module):
 
     def forward(self, x):
         x = self.featuremaps(x)
-        x = x.view(x.size(0), -1)
+        # x = x.view(x.size(0), -1)
+        n, c, h, w = x.shape
+        x = x.view(n, c*h*w)
+
         x = self.fc(x)
         y = self.classifier(x)
 

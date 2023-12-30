@@ -226,7 +226,9 @@ class MLFN(nn.Module):
         s_hat = self.fc_s(s_hat)
 
         v = (x+s_hat) * 0.5
-        v = v.view(v.size(0), -1)
+        # v = v.view(v.size(0), -1)
+        n, c, h, w = v.shape
+        v = v.view(n, c*h*w)
 
         if not self.training:
             return v
@@ -243,7 +245,7 @@ class MLFN(nn.Module):
 
 def init_pretrained_weights(model, model_url):
     """Initializes model with pretrained weights.
-    
+
     Layers that don't match with pretrained layers in name or size are kept unchanged.
     """
     pretrain_dict = model_zoo.load_url(model_url)

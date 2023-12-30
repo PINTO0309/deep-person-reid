@@ -342,7 +342,10 @@ class InceptionV4(nn.Module):
     def forward(self, x):
         f = self.features(x)
         v = self.global_avgpool(f)
-        v = v.view(v.size(0), -1)
+        # v = v.view(v.size(0), -1)
+        n, c, h, w = v.shape
+        v = v.view(n, c*h*w)
+
 
         if not self.training:
             return v
@@ -359,7 +362,7 @@ class InceptionV4(nn.Module):
 
 def init_pretrained_weights(model, model_url):
     """Initializes model with pretrained weights.
-    
+
     Layers that don't match with pretrained layers in name or size are kept unchanged.
     """
     pretrain_dict = model_zoo.load_url(model_url)

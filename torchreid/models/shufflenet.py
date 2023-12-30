@@ -155,7 +155,10 @@ class ShuffleNet(nn.Module):
         x = self.stage2(x)
         x = self.stage3(x)
         x = self.stage4(x)
-        x = F.avg_pool2d(x, x.size()[2:]).view(x.size(0), -1)
+        # x = F.avg_pool2d(x, x.size()[2:]).view(x.size(0), -1)
+        x = F.avg_pool2d(x, x.size()[2:])
+        n, c, h, w = x.shape
+        x = x.view(n, c*h*w)
 
         if not self.training:
             return x
@@ -172,7 +175,7 @@ class ShuffleNet(nn.Module):
 
 def init_pretrained_weights(model, model_url):
     """Initializes model with pretrained weights.
-    
+
     Layers that don't match with pretrained layers in name or size are kept unchanged.
     """
     pretrain_dict = model_zoo.load_url(model_url)

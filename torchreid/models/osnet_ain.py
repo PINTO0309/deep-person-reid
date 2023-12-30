@@ -308,7 +308,7 @@ class OSBlockINin(nn.Module):
 ##########
 class OSNet(nn.Module):
     """Omni-Scale Network.
-    
+
     Reference:
         - Zhou et al. Omni-Scale Feature Learning for Person Re-Identification. ICCV, 2019.
         - Zhou et al. Learning Generalisable Omni-Scale Representations
@@ -434,7 +434,10 @@ class OSNet(nn.Module):
         if return_featuremaps:
             return x
         v = self.global_avgpool(x)
-        v = v.view(v.size(0), -1)
+        # v = v.view(v.size(0), -1)
+        n, c, h, w = v.shape
+        v = v.view(n, c*h*w)
+
         if self.fc is not None:
             v = self.fc(v)
         if not self.training:
@@ -450,7 +453,7 @@ class OSNet(nn.Module):
 
 def init_pretrained_weights(model, key=''):
     """Initializes model with pretrained weights.
-    
+
     Layers that don't match with pretrained layers in name or size are kept unchanged.
     """
     import os
