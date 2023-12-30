@@ -2,7 +2,7 @@ import os
 import onnx
 import requests
 import torch
-from torchreid.utils import SimilarityCalculator
+from torchreid.utils import FeatureExtractor
 
 MODELS = [
     # ['hacnn', [160,64], 'hacnn_duke_xent.pth.tar'], # invalid
@@ -106,70 +106,45 @@ for model_name, [H, W], weight_file, distance in MODELS:
     if not os.path.isfile(os.path.join("weights", weight_file)):
         download_file(url=url, folder="weights", filename=weight_file)
 
-    model = SimilarityCalculator(
+    model = FeatureExtractor(
         model_name=model_name,
         model_path=f'weights/{weight_file}',
         device='cpu',
         image_size=(H, W),
-        distance=distance,
         verbose=False,
     )
 
     MODEL = os.path.basename(weight_file).split('.', 1)[0]
 
-    onnx_file = f"{MODEL}_11x3x{H}x{W}.onnx"
+    onnx_file = f"{MODEL}_1x3x{H}x{W}.onnx"
     x = torch.randn(1, 3, H, W).cpu()
-    y = torch.randn(1, 3, H, W).cpu()
     torch.onnx.export(
-        model,
-        args=(x, y),
+        model.model,
+        args=(x),
         f=onnx_file,
         opset_version=11,
-        input_names=['base_image', 'target_image'],
-        output_names=['similarity'],
+        input_names=['base_image'],
+        output_names=['feature'],
     )
     model_onnx1 = onnx.load(onnx_file)
     model_onnx1 = onnx.shape_inference.infer_shapes(model_onnx1)
     onnx.save(model_onnx1, onnx_file)
 
     if model_name != "shufflenet":
-        onnx_file = f"{MODEL}_1Nx3x{H}x{W}.onnx"
+        onnx_file = f"{MODEL}_Nx3x{H}x{W}.onnx"
         x = torch.randn(1, 3, H, W).cpu()
-        y = torch.randn(1, 3, H, W).cpu()
         torch.onnx.export(
-            model,
-            args=(x, y),
+            model.model,
+            args=(x),
             f=onnx_file,
             opset_version=11,
-            input_names=['base_image', 'target_images'],
-            output_names=['similarities'],
-            dynamic_axes={
-                'target_images' : {0: 'N'},
-                'similarities' : {0: '1', 1: 'N'},
-            }
-        )
-        model_onnx1 = onnx.load(onnx_file)
-        model_onnx1 = onnx.shape_inference.infer_shapes(model_onnx1)
-        onnx.save(model_onnx1, onnx_file)
-
-    if model_name != "shufflenet":
-        onnx_file = f"{MODEL}_NMx3x{H}x{W}.onnx"
-        x = torch.randn(1, 3, H, W).cpu()
-        y = torch.randn(1, 3, H, W).cpu()
-        torch.onnx.export(
-            model,
-            args=(x, y),
-            f=onnx_file,
-            opset_version=11,
-            input_names=['base_images', 'target_images'],
-            output_names=['similarities'],
+            input_names=['base_images'],
+            output_names=['features'],
             dynamic_axes={
                 'base_images' : {0: 'N'},
-                'target_images' : {0: 'M'},
-                'similarities' : {0: 'N', 1: 'M'},
+                'features' : {0: 'N', 1: '1'},
             }
         )
         model_onnx1 = onnx.load(onnx_file)
         model_onnx1 = onnx.shape_inference.infer_shapes(model_onnx1)
         onnx.save(model_onnx1, onnx_file)
-
